@@ -42,9 +42,8 @@ M=1000
 
 nums=[1,5,2,10]
 biggest=0
-lowest=10000000000
 x=len(nums)
-for i in range(x):
+for i   in range(x):
     for j in range(x):
         if nums[j]-nums[i]>biggest and j>i:
             biggest=nums[j]-nums[i]
