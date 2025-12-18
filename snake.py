@@ -312,7 +312,7 @@ def main_game(apple_count, hard_mode):
             # NEW: flash neon-green for poison death
             if main.death_by_poison and flash_time < 10:
                 flash = pygame.Surface(SCREEN.get_size(), pygame.SRCALPHA)
-                flash.fill((255, 105, 20, 120))
+                flash.fill((255, 105, 20, 200))
                 SCREEN.blit(flash, (0, 0))
                 flash_time += 0.7
             msg = FONT_BIG.render("GAME OVER", True, (200, 0, 0))
