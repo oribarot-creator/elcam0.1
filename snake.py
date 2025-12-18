@@ -470,4 +470,3 @@ while True:
     apples = menu.apple_opts[menu.apple_idx]
     hard = menu.mode_opts[menu.mode_idx] == 'HARD'
     main_game(apples, hard)
-
