@@ -322,7 +322,7 @@ def main_game(apple_count, hard_mode):
             rr = retry.get_rect(center=(SCREEN.get_width() // 2, SCREEN.get_height() // 2 + 20))
             SCREEN.blit(retry, rr)
         pygame.display.update()
-        CLOCK.tick(100)
+        CLOCK.tick(100)  
 
 # -------------------------------------------------
 # Eternal menu → game → menu loop
