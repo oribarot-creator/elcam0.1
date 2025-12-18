@@ -1,9 +1,6 @@
 import pygame
 import random
 import sys
-import sqlite3
-import re
-from datetime import datetime
 from pygame.math import Vector2
 
 pygame.init()
@@ -123,7 +120,7 @@ class MAIN:
         self.fruits = [FRUIT() for _ in range(apple_count)]
         self.poison = POISON_FRUIT()
         self.game_over_flag = False
-        self.death_by_poison = False  # track poison death
+        self.death_by_poison = False  # NEW: track poison death
 
     def update(self):
         if self.game_over_flag:
@@ -143,7 +140,7 @@ class MAIN:
                 if self.hard_mode and random.random() < 0.30:
                     self.poison.randomize(self.snake.body)
         if self.hard_mode and self.poison.active and self.poison.pos == head:
-            self.death_by_poison = True
+            self.death_by_poison = True  # NEW: mark poison death
             self.game_over_flag = True
 
     def check_fail(self):
@@ -281,6 +278,11 @@ class Menu:
         pygame.display.update()
 
 # -------------------------------------------------
+import sqlite3
+from datetime import datetime
+import re
+
+# -------------------------------------------------
 # Database helpers
 # -------------------------------------------------
 DB_FILE = "snake_scores.db"
@@ -318,21 +320,18 @@ def fetch_top_scores(limit=5):
     return rows
 
 # -------------------------------------------------
-# Simple name-input box (used ONCE at start-up)
+# Simple name-input box
 # -------------------------------------------------
-CURRENT_PLAYER = ""
-
-def ask_name_once():
-    """Ask for the player name once when the program starts."""
-    global CURRENT_PLAYER
+def ask_name():
+    """Return a cleaned-up player name (max 10 A-Z0-9)."""
     name = ""
     while True:
         SCREEN.fill(theme("bg"))
-        title = FONT_BIG.render("ENTER YOUR NAME", True, theme("text_select"))
+        title = FONT_BIG.render("NEW HIGH SCORE!", True, theme("text_select"))
         tr = title.get_rect(center=(SCREEN.get_width() // 2, 120))
         SCREEN.blit(title, tr)
 
-        prompt = FONT_MED.render("Name (max 10 letters):", True, theme("text"))
+        prompt = FONT_MED.render("Enter your name (max 10 letters):", True, theme("text"))
         pr = prompt.get_rect(center=(SCREEN.get_width() // 2, 200))
         SCREEN.blit(prompt, pr)
 
@@ -360,19 +359,29 @@ def ask_name_once():
                     name = name[:-1]
                 elif e.key == pygame.K_RETURN:
                     clean = re.sub(r"[^A-Za-z0-9]", "", name)[:10]
-                    CURRENT_PLAYER = clean or "Player"
-                    return
+                    return clean or "Player"
                 elif len(name) < 10 and e.unicode.isalnum():
                     name += e.unicode
 
 # -------------------------------------------------
-# Game over screen – always inserts the score
+# Game over screen with DB insert
 # -------------------------------------------------
 def game_over_screen(final_score, apples, hard_mode):
-    # Always insert – no matter if it is a high score or not
-    insert_score(CURRENT_PLAYER, final_score, apples, hard_mode)
-
     top5 = fetch_top_scores()
+    is_high_score = False
+    if top5:
+        if final_score > top5[0][1]:
+            is_high_score = True
+    else:
+        is_high_score = True
+
+    if is_high_score:
+        player_name = ask_name()
+        insert_score(player_name, final_score, apples, hard_mode)
+
+    # After insert show the updated table
+    top5 = fetch_top_scores()
+
     while True:
         SCREEN.fill(theme("bg"))
 
@@ -463,11 +472,16 @@ def main_game(apple_count, hard_mode):
 # -------------------------------------------------
 # Eternal menu → game → menu loop
 # -------------------------------------------------
-ask_name_once()  # <— ask only once at start-up
 while True:
     menu = Menu()
     menu.run()
     apples = menu.apple_opts[menu.apple_idx]
     hard = menu.mode_opts[menu.mode_idx] == 'HARD'
     main_game(apples, hard)
+
+    make the login at the start and always instead of just if you are first
+
+
+
+
 

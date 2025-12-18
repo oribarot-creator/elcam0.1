@@ -1,3 +1,12 @@
+Below the only thing that really changes is the flow of the program:  
+- we ALWAYS ask for the player’s name before the first game starts  
+- that name is stored in a global variable CURRENT_PLAYER  
+- when the snake dies we simply re-use that name – no matter if the score is a high-score or not – and write one row to the DB  
+
+Everything else (graphics, logic, DB schema, controls …) stays exactly the same.  
+Just copy-paste the whole block and run it.
+
+```python
 import pygame
 import random
 import sys
@@ -470,4 +479,4 @@ while True:
     apples = menu.apple_opts[menu.apple_idx]
     hard = menu.mode_opts[menu.mode_idx] == 'HARD'
     main_game(apples, hard)
-
+```
