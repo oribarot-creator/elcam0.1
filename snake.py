@@ -1,18 +1,55 @@
-
 import pygame
 import random
 import sys
 from pygame.math import Vector2
 
 pygame.init()
-CELL_SIZE = 20
+
+# -------------------------------------------------
+# Colour theme switcher
+# -------------------------------------------------
+DARK_MODE = False  # <<<<< toggle this or change it in the menu
+
+def theme(colour_key):
+    """Return the correct colour for the current theme."""
+    return COLS[colour_key][int(DARK_MODE)]
+
+COLS = {
+    "bg":           [(175, 215, 70), (25, 35, 50)],           # background
+    "bg_alt":       [(162, 200, 56), (0, 0, 0)],            # grass alt
+    "text":         [(56, 74, 12), (220, 220, 220)],        # normal text
+    "text_select":  [(255, 215, 0), (255, 215, 0)],        # selected text
+    "snake":        [(0, 170, 0), (0, 200, 0)],            # snake body
+    "fruit":        [(220, 50, 50), (80, 180, 255)],        # apple – BLUE in dark mode
+    "poison":       [(75, 0, 130), (0, 255, 0)],            # << NEON GREEN in dark mode
+    "shadow":       [(0, 0, 0, 80), (0, 0, 0, 120)],        # shadow alpha
+    "ui_panel":     [(255, 255, 255), (40, 45, 60)],        # score panel
+}
+
+CELL_SIZE = 30
 CELL_NUMBER = 25
 SCREEN = pygame.display.set_mode((CELL_SIZE * CELL_NUMBER, CELL_SIZE * CELL_NUMBER))
 CLOCK = pygame.time.Clock()
-FONT_BIG = pygame.font.SysFont('arial', 44)
-FONT_MED = pygame.font.SysFont('arial', 28)
+FONT_BIG = pygame.font.SysFont('arial', 48, bold=True)
+FONT_MED = pygame.font.SysFont('arial', 32)
 
-# ----------------------------- GAME CLASSES -----------------------------
+# -------------------------------------------------
+# Helpers for round rects and subtle shadows
+# -------------------------------------------------
+def round_rect(surf, rect, color, radius=0.25):
+    radius = int(min(rect.width, rect.height) * radius)
+    pygame.draw.rect(surf, color, rect, border_radius=radius)
+
+def shadow_rect(surf, rect, color, shadow=4, radius=0.25):
+    shadow_surf = pygame.Surface(rect.size, pygame.SRCALPHA)
+    shadow_surf.fill((0, 0, 0, 0))
+    round_rect(shadow_surf, shadow_surf.get_rect(), (*theme("shadow")[:3], theme("shadow")[3]), radius)
+    surf.blit(shadow_surf, (rect.x + shadow, rect.y + shadow))
+    round_rect(surf, rect, color, radius)
+
+# -------------------------------------------------
+# Game objects
+# -------------------------------------------------
 class SNAKE:
     def __init__(self):
         self.body = [Vector2(5, 10), Vector2(4, 10), Vector2(3, 10)]
@@ -20,28 +57,23 @@ class SNAKE:
         self.grow = False
 
     def move(self):
-        if self.grow:
-            body_copy = self.body[:]
-            body_copy.insert(0, body_copy[0] + self.direction)
-            self.body = body_copy
-            self.grow = False
-        else:
-            body_copy = self.body[:-1]
-            body_copy.insert(0, body_copy[0] + self.direction)
-            self.body = body_copy
+        head = self.body[0] + self.direction
+        self.body = [head] + (self.body if self.grow else self.body[:-1])
+        self.grow = False
 
     def add_block(self):
         self.grow = True
 
-    def draw(self):
-        for block in self.body:
-            x_pos = int(block.x * CELL_SIZE)
-            y_pos = int(block.y * CELL_SIZE)
-            block_rect = pygame.Rect(x_pos, y_pos, CELL_SIZE, CELL_SIZE)
-            pygame.draw.rect(SCREEN, (0, 120, 0), block_rect)
-
     def reset(self):
         self.__init__()
+
+    def draw(self):
+        for idx, block in enumerate(self.body):
+            rect = pygame.Rect(int(block.x * CELL_SIZE), int(block.y * CELL_SIZE),
+                               CELL_SIZE, CELL_SIZE)
+            shade = 170 - idx * 3
+            color = (*theme("snake")[:2], max(shade, 80)) if not DARK_MODE else theme("snake")
+            shadow_rect(SCREEN, rect.inflate(-2, -2), color, radius=0.4)
 
 class FRUIT:
     def __init__(self):
@@ -49,43 +81,46 @@ class FRUIT:
 
     def randomize(self):
         self.pos = Vector2(random.randint(0, CELL_NUMBER - 1),
-                          random.randint(0, CELL_NUMBER - 1))
+                           random.randint(0, CELL_NUMBER - 1))
 
     def draw(self):
-        fruit_rect = pygame.Rect(int(self.pos.x * CELL_SIZE),
-                                 int(self.pos.y * CELL_SIZE),
-                                 CELL_SIZE, CELL_SIZE)
-        pygame.draw.rect(SCREEN, (200, 0, 0), fruit_rect)
+        rect = pygame.Rect(int(self.pos.x * CELL_SIZE), int(self.pos.y * CELL_SIZE),
+                           CELL_SIZE, CELL_SIZE)
+        # thin bright outline so fruit is visible on black grass in dark mode
+        if DARK_MODE:
+            pygame.draw.rect(SCREEN, (255, 255, 255), rect.inflate(-2, -2), width=1, border_radius=4)
+        shadow_rect(SCREEN, rect.inflate(-4, -4), theme("fruit"), radius=0.5)
 
 class POISON_FRUIT:
     def __init__(self):
-        self.pos = Vector2(-1, -1)  # off-screen
+        self.pos = Vector2(-1, -1)
         self.active = False
 
     def randomize(self, snake_body):
         while True:
-            pos = Vector2(random.randint(0, CELL_NUMBER - 1),
-                         random.randint(0, CELL_NUMBER - 1))
-            if pos not in snake_body:
-                self.pos = pos
+            self.pos = Vector2(random.randint(0, CELL_NUMBER - 1),
+                               random.randint(0, CELL_NUMBER - 1))
+            if self.pos not in snake_body:
                 self.active = True
                 return
 
     def draw(self):
         if self.active:
-            rect = pygame.Rect(int(self.pos.x * CELL_SIZE),
-                              int(self.pos.y * CELL_SIZE),
-                              CELL_SIZE, CELL_SIZE)
-            pygame.draw.rect(SCREEN, (58, 3, 66), rect)
+            rect = pygame.Rect(int(self.pos.x * CELL_SIZE), int(self.pos.y * CELL_SIZE),
+                               CELL_SIZE, CELL_SIZE)
+            if DARK_MODE:
+                pygame.draw.rect(SCREEN, (255, 255, 255), rect.inflate(-2, -2), width=1, border_radius=4)
+            shadow_rect(SCREEN, rect.inflate(-4, -4), theme("poison"), radius=0.5)
 
 class MAIN:
     def __init__(self, apple_count, hard_mode):
         self.apple_count = apple_count
         self.hard_mode = hard_mode
         self.snake = SNAKE()
-        self.fruits = [FRUIT() for _ in range(self.apple_count)]
+        self.fruits = [FRUIT() for _ in range(apple_count)]
         self.poison = POISON_FRUIT()
         self.game_over_flag = False
+        self.death_by_poison = False  # NEW: track poison death
 
     def update(self):
         if self.game_over_flag:
@@ -93,6 +128,28 @@ class MAIN:
         self.snake.move()
         self.check_collision()
         self.check_fail()
+
+    def check_collision(self):
+        head = self.snake.body[0]
+        for f in self.fruits:
+            if f.pos == head:
+                self.snake.add_block()
+                f.randomize()
+                while f.pos in self.snake.body:
+                    f.randomize()
+                if self.hard_mode and random.random() < 0.30:
+                    self.poison.randomize(self.snake.body)
+        if self.hard_mode and self.poison.active and self.poison.pos == head:
+            self.death_by_poison = True  # NEW: mark poison death
+            self.game_over_flag = True
+
+    def check_fail(self):
+        head = self.snake.body[0]
+        if not 0 <= head.x < CELL_NUMBER or not 0 <= head.y < CELL_NUMBER:
+            self.game_over_flag = True
+        for block in self.snake.body[1:]:
+            if block == head:
+                self.game_over_flag = True
 
     def draw_elements(self):
         self.draw_grass()
@@ -103,182 +160,176 @@ class MAIN:
         self.snake.draw()
         self.draw_score()
 
-    def check_collision(self):
-        head = self.snake.body[0]
-        # normal apples
-        for f in self.fruits:
-            if f.pos == head:
-                self.snake.add_block()
-                f.randomize()
-                while f.pos in self.snake.body:
-                    f.randomize()
-                # hard mode: chance to spawn poison
-                if self.hard_mode and random.random() < 0.30:
-                    self.poison.randomize(self.snake.body)
-        # poison apple
-        if self.hard_mode and self.poison.active and self.poison.pos == head:
-            self.game_over_flag = True
-
-    def check_fail(self):
-        head = self.snake.body[0]
-        # wall
-        if not 0 <= head.x < CELL_NUMBER or not 0 <= head.y < CELL_NUMBER:
-            self.game_over()
-        # self bite
-        for block in self.snake.body[1:]:
-            if block == head:
-                self.game_over()
-
-    def game_over(self):
-        self.game_over_flag = True
-
     def draw_grass(self):
-        grass_color = (167, 209, 61)
+        grass_color = theme("bg_alt")
+        tint_color = theme("bg")
         for row in range(CELL_NUMBER):
-            if row % 2 == 0:
-                for col in range(CELL_NUMBER):
-                    if col % 2 == 0:
-                        grass_rect = pygame.Rect(col * CELL_SIZE, row * CELL_SIZE,
-                                                CELL_SIZE, CELL_SIZE)
-                        pygame.draw.rect(SCREEN, grass_color, grass_rect)
-            else:
-                for col in range(CELL_NUMBER):
-                    if col % 2 != 0:
-                        grass_rect = pygame.Rect(col * CELL_SIZE, row * CELL_SIZE,
-                                                CELL_SIZE, CELL_SIZE)
-                        pygame.draw.rect(SCREEN, grass_color, grass_rect)
+            for col in range(CELL_NUMBER):
+                color = grass_color if (row + col) % 2 == 0 else tint_color
+                rect = pygame.Rect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+                SCREEN.fill(color, rect)
 
     def draw_score(self):
-        score_text = str(len(self.snake.body) - 3)
-        score_surface = FONT_MED.render(score_text, True, (56, 74, 12))
-        score_x = int(CELL_SIZE * CELL_NUMBER - 60)
-        score_y = int(CELL_SIZE * CELL_NUMBER - 40)
-        score_rect = score_surface.get_rect(center=(score_x, score_y))
-        SCREEN.blit(score_surface, score_rect)
+        score = str(len(self.snake.body) - 3)
+        surf = FONT_MED.render(score, True, theme("text"))
+        rect = surf.get_rect(center=(CELL_SIZE * CELL_NUMBER - 40, 40))
+        shadow_rect(SCREEN, rect, theme("ui_panel"), radius=0.4)
+        SCREEN.blit(surf, rect)
 
-# ----------------------------- MENU -----------------------------
+# -------------------------------------------------
+# Menu
+# -------------------------------------------------
 class Menu:
     def __init__(self):
-        self.apple_options = [1, 3, 5, 7]
-        self.apple_idx = 1  # default 3 apples
-        self.mode_options = ['NORMAL', 'HARD']
+        self.apple_opts = [1, 3, 5, 7]
+        self.apple_idx = 1
+        self.mode_opts = ['NORMAL', 'HARD']
         self.mode_idx = 0
-        self.selector = 0  # 0 = apples, 1 = mode
+        self.selector = 0
         self.start = False
+        global DARK_MODE
+        self.dark_opts = ['LIGHT', 'DARK']
+        self.dark_idx = int(DARK_MODE)
 
     def run(self):
         while not self.start:
             self.handle_events()
             self.draw()
-            CLOCK.tick(130)
+            CLOCK.tick(120)
+        # copy the chosen theme back to the global variable
+        global DARK_MODE
+        DARK_MODE = bool(self.dark_idx)
 
     def handle_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
-                if event.key in (pygame.K_LEFT, pygame.K_a):
+                if e.key in (pygame.K_LEFT, pygame.K_a):
                     if self.selector == 0:
-                        self.apple_idx = (self.apple_idx - 1) % len(self.apple_options)
+                        self.apple_idx = (self.apple_idx - 1) % len(self.apple_opts)
+                    elif self.selector == 1:
+                        self.mode_idx = (self.mode_idx - 1) % len(self.mode_opts)
                     else:
-                        self.mode_idx = (self.mode_idx - 1) % len(self.mode_options)
-                if event.key in (pygame.K_RIGHT, pygame.K_d):
+                        self.dark_idx = (self.dark_idx - 1) % len(self.dark_opts)
+                if e.key in (pygame.K_RIGHT, pygame.K_d):
                     if self.selector == 0:
-                        self.apple_idx = (self.apple_idx + 1) % len(self.apple_options)
+                        self.apple_idx = (self.apple_idx + 1) % len(self.apple_opts)
+                    elif self.selector == 1:
+                        self.mode_idx = (self.mode_idx + 1) % len(self.mode_opts)
                     else:
-                        self.mode_idx = (self.mode_idx + 1) % len(self.mode_options)
-                if event.key == pygame.K_DOWN:
-                    self.selector = 1
-                if event.key == pygame.K_UP:
-                    self.selector = 0
-                if event.key == pygame.K_SPACE:
+                        self.dark_idx = (self.dark_idx + 1) % len(self.dark_opts)
+                if e.key == pygame.K_UP:
+                    self.selector = (self.selector - 1) % 3
+                if e.key == pygame.K_DOWN:
+                    self.selector = (self.selector + 1) % 3
+                if e.key == pygame.K_SPACE:
                     self.start = True
 
     def draw(self):
-        SCREEN.fill((175, 215, 70))
-        title = FONT_BIG.render("SNAKE GAME", True, (56, 74, 12))
-        title_rect = title.get_rect(center=(SCREEN.get_width() // 2, 80))
-        SCREEN.blit(title, title_rect)
+        SCREEN.fill(theme("bg"))
+        # Title
+        title = FONT_BIG.render("SNAKE", True, theme("text"))
+        tr = title.get_rect(center=(SCREEN.get_width() // 2, 70))
+        SCREEN.blit(title, tr)
 
-        # Apples selector
-        apples_label = FONT_MED.render("Apples:", True, (56, 74, 12))
-        SCREEN.blit(apples_label, (120, 180))
-        gap = 60
-        for idx, num in enumerate(self.apple_options):
-            color = (56, 74, 12) if idx != self.apple_idx else (255, 255, 255)
-            if self.selector == 0 and idx == self.apple_idx:
-                color = (255, 215, 0)
+        # Apples
+        label = FONT_MED.render("Apples:", True, theme("text"))
+        SCREEN.blit(label, (120, 160))
+        gap = 70
+        for idx, num in enumerate(self.apple_opts):
+            color = theme("text_select") if self.selector == 0 and idx == self.apple_idx else theme("text")
+            bg_color = theme("ui_panel") if self.selector == 0 and idx == self.apple_idx else None
             txt = FONT_MED.render(str(num), True, color)
-            SCREEN.blit(txt, (120 + idx * gap, 220))
+            if bg_color:
+                pygame.draw.rect(SCREEN, bg_color, txt.get_rect(x=120 + idx * gap, y=200).inflate(10, 10), border_radius=5)
+            SCREEN.blit(txt, (120 + idx * gap, 200))
 
-        # Mode selector
-        mode_label = FONT_MED.render("Mode:", True, (56, 74, 12))
-        SCREEN.blit(mode_label, (120, 280))
-        for idx, mode in enumerate(self.mode_options):
-            color = (56, 74, 12) if idx != self.mode_idx else (255, 255, 255)
-            if self.selector == 1 and idx == self.mode_idx:
-                color = (255, 215, 0)
+        # Mode
+        label = FONT_MED.render("Mode:", True, theme("text"))
+        SCREEN.blit(label, (120, 260))
+        for idx, mode in enumerate(self.mode_opts):
+            color = theme("text_select") if self.selector == 1 and idx == self.mode_idx else theme("text")
+            bg_color = theme("ui_panel") if self.selector == 1 and idx == self.mode_idx else None
             txt = FONT_MED.render(mode, True, color)
-            SCREEN.blit(txt, (120 + idx * 140, 320))
+            if bg_color:
+                pygame.draw.rect(SCREEN, bg_color, txt.get_rect(x=120 + idx * 140, y=300).inflate(10, 10), border_radius=5)
+            SCREEN.blit(txt, (120 + idx * 140, 300))
 
-        # Start hint
-        hint = FONT_MED.render("Press SPACE to start", True, (56, 74, 12))
-        hint_rect = hint.get_rect(center=(SCREEN.get_width() // 2, 400))
-        SCREEN.blit(hint, hint_rect)
+        # Dark / Light
+        label = FONT_MED.render("Theme:", True, theme("text"))
+        SCREEN.blit(label, (120, 360))
+        for idx, theme_name in enumerate(self.dark_opts):
+            color = theme("text_select") if self.selector == 2 and idx == self.dark_idx else theme("text")
+            bg_color = theme("ui_panel") if self.selector == 2 and idx == self.dark_idx else None
+            txt = FONT_MED.render(theme_name, True, color)
+            if bg_color:
+                pygame.draw.rect(SCREEN, bg_color, txt.get_rect(x=120 + idx * 140, y=400).inflate(10, 10), border_radius=5)
+            SCREEN.blit(txt, (120 + idx * 140, 400))
 
+        # Hint
+        hint = FONT_MED.render("Press SPACE to start", True, theme("text"))
+        hr = hint.get_rect(center=(SCREEN.get_width() // 2, 480))
+        SCREEN.blit(hint, hr)
         pygame.display.update()
 
-# ----------------------------- MAIN FLOW -----------------------------
+# -------------------------------------------------
+# Main loop
+# -------------------------------------------------
 def main_game(apple_count, hard_mode):
     main = MAIN(apple_count, hard_mode)
     SCREEN_UPDATE = pygame.USEREVENT
     pygame.time.set_timer(SCREEN_UPDATE, 150)
-
+    flash_time = 0  # NEW: timer for poison flash
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type == SCREEN_UPDATE:
+            if e.type == SCREEN_UPDATE:
                 main.update()
-            if event.type == pygame.KEYDOWN:
-                if main.game_over_flag and event.key == pygame.K_r:
-                    return  # back to menu
-                if event.key == pygame.K_ESCAPE:
+            if e.type == pygame.KEYDOWN:
+                if main.game_over_flag and e.key == pygame.K_r:
+                    return
+                if e.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
-                # direction controls
-                if event.key == pygame.K_UP and main.snake.direction.y != 1:
+                if e.key == pygame.K_UP and main.snake.direction.y != 1:
                     main.snake.direction = Vector2(0, -1)
-                if event.key == pygame.K_DOWN and main.snake.direction.y != -1:
+                if e.key == pygame.K_DOWN and main.snake.direction.y != -1:
                     main.snake.direction = Vector2(0, 1)
-                if event.key == pygame.K_LEFT and main.snake.direction.x != 1:
+                if e.key == pygame.K_LEFT and main.snake.direction.x != 1:
                     main.snake.direction = Vector2(-1, 0)
-                if event.key == pygame.K_RIGHT and main.snake.direction.x != -1:
+                if e.key == pygame.K_RIGHT and main.snake.direction.x != -1:
                     main.snake.direction = Vector2(1, 0)
-
-        SCREEN.fill((175, 215, 70))
+        SCREEN.fill(theme("bg"))
         main.draw_elements()
         if main.game_over_flag:
+            # NEW: flash neon-green for poison death
+            if main.death_by_poison and flash_time < 10:
+                flash = pygame.Surface(SCREEN.get_size(), pygame.SRCALPHA)
+                flash.fill((255, 105, 20, 120))
+                SCREEN.blit(flash, (0, 0))
+                flash_time += 0.7
             msg = FONT_BIG.render("GAME OVER", True, (200, 0, 0))
-            msg_rect = msg.get_rect(center=(SCREEN.get_width() // 2,
-                                            SCREEN.get_height() // 2 - 30))
-            SCREEN.blit(msg, msg_rect)
+            mr = msg.get_rect(center=(SCREEN.get_width() // 2, SCREEN.get_height() // 2 - 30))
+            SCREEN.blit(msg, mr)
             retry = FONT_MED.render("Press R for menu", True, (200, 0, 0))
-            retry_rect = retry.get_rect(center=(SCREEN.get_width() // 2,
-                                               SCREEN.get_height() // 2 + 20))
-            SCREEN.blit(retry, retry_rect)
+            rr = retry.get_rect(center=(SCREEN.get_width() // 2, SCREEN.get_height() // 2 + 20))
+            SCREEN.blit(retry, rr)
         pygame.display.update()
         CLOCK.tick(100)
 
-# ----------------------------- LOOP -----------------------------
+# -------------------------------------------------
+# Eternal menu → game → menu loop
+# -------------------------------------------------
 while True:
     menu = Menu()
     menu.run()
-    apples = menu.apple_options[menu.apple_idx]
-    hard = menu.mode_options[menu.mode_idx] == 'HARD'
+    apples = menu.apple_opts[menu.apple_idx]
+    hard = menu.mode_opts[menu.mode_idx] == 'HARD'
     main_game(apples, hard)
