@@ -7,6 +7,7 @@ from datetime import datetime
 from pygame.math import Vector2
 
 pygame.init()
+pygame.mixer.init()          # <── make sure mixer is ready
 
 # -------------------------------------------------
 # Colour theme switcher
@@ -35,6 +36,7 @@ SCREEN = pygame.display.set_mode((CELL_SIZE * CELL_NUMBER, CELL_SIZE * CELL_NUMB
 CLOCK = pygame.time.Clock()
 FONT_BIG = pygame.font.SysFont('arial', 48, bold=True)
 FONT_MED = pygame.font.SysFont('arial', 32)
+
 
 # -------------------------------------------------
 # Helpers for round rects and subtle shadows
@@ -145,14 +147,20 @@ class MAIN:
         if self.hard_mode and self.poison.active and self.poison.pos == head:
             self.death_by_poison = True
             self.game_over_flag = True
+            pygame.mixer.music.load("deads.mp3")
+            pygame.mixer.music.play(1)      # <── poison death sound
 
     def check_fail(self):
         head = self.snake.body[0]
         if not 0 <= head.x < CELL_NUMBER or not 0 <= head.y < CELL_NUMBER:
             self.game_over_flag = True
+            pygame.mixer.music.load("deads.mp3")
+            pygame.mixer.music.play(1)    # <── wall death sound
         for block in self.snake.body[1:]:
             if block == head:
                 self.game_over_flag = True
+                pygame.mixer.music.load("deads.mp3")
+                pygame.mixer.music.play(1)  # <── self-bite death sound
 
     def draw_elements(self):
         self.draw_grass()
@@ -463,10 +471,11 @@ def main_game(apple_count, hard_mode):
 # -------------------------------------------------
 # Eternal menu → game → menu loop
 # -------------------------------------------------
-ask_name_once()  # <— ask only once at start-up
+ask_name_once()  # — ask only once at start-up
 while True:
     menu = Menu()
     menu.run()
     apples = menu.apple_opts[menu.apple_idx]
     hard = menu.mode_opts[menu.mode_idx] == 'HARD'
     main_game(apples, hard)
+
