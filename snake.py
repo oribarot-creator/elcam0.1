@@ -138,6 +138,8 @@ class MAIN:
         head = self.snake.body[0]
         for f in self.fruits:
             if f.pos == head:
+                pygame.mixer.music.load("eat.mp3")
+                pygame.mixer.music.play(1)
                 self.snake.add_block()
                 f.randomize()
                 while f.pos in self.snake.body:
@@ -147,20 +149,22 @@ class MAIN:
         if self.hard_mode and self.poison.active and self.poison.pos == head:
             self.death_by_poison = True
             self.game_over_flag = True
-            pygame.mixer.music.load("deads.mp3")
-            pygame.mixer.music.play(1)      # <── poison death sound
+            pygame.mixer.music.load("explode.mp3")
+            pygame.mixer.music.play(1)
+
 
     def check_fail(self):
         head = self.snake.body[0]
         if not 0 <= head.x < CELL_NUMBER or not 0 <= head.y < CELL_NUMBER:
             self.game_over_flag = True
-            pygame.mixer.music.load("deads.mp3")
-            pygame.mixer.music.play(1)    # <── wall death sound
+            pygame.mixer.music.load("explode.mp3")
+            pygame.mixer.music.play(1)
         for block in self.snake.body[1:]:
             if block == head:
                 self.game_over_flag = True
-                pygame.mixer.music.load("deads.mp3")
-                pygame.mixer.music.play(1)  # <── self-bite death sound
+                pygame.mixer.music.load("explode.mp3")
+                pygame.mixer.music.play(1)
+
 
     def draw_elements(self):
         self.draw_grass()
@@ -378,6 +382,8 @@ def ask_name_once():
 # -------------------------------------------------
 def game_over_screen(final_score, apples, hard_mode):
     # Always insert – no matter if it is a high score or not
+    pygame.mixer.music.load("deads.mp3")
+    pygame.mixer.music.play(1)
     insert_score(CURRENT_PLAYER, final_score, apples, hard_mode)
 
     top5 = fetch_top_scores()
