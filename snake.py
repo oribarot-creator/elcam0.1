@@ -382,7 +382,7 @@ def ask_name_once():
 # -------------------------------------------------
 def game_over_screen(final_score, apples, hard_mode):
     # Always insert – no matter if it is a high score or not
-    pygame.mixer.music.load("deads.mp3")
+    pygame.mixer.music.load("deads1.mp3")
     pygame.mixer.music.play(1)
     insert_score(CURRENT_PLAYER, final_score, apples, hard_mode)
 
