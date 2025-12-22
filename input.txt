@@ -1,3 +1,164 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import subprocess, sys, os, sqlite3, json
+
+ROOT = os.path.dirname(__file__)          # folder that contains app.py
+DB   = os.path.join(ROOT, "snake_scores.db")
+
+app = Flask(__name__)
+CORS(app)        # allow React dev-server
+
+# ---------- DB helpers (copied from your file) ----------
+def init_db():
+    with sqlite3.connect(DB) as con:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS scores(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                apples INTEGER NOT NULL,
+                hard_mode INTEGER NOT NULL,
+                created DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+init_db()
+
+def insert_score(name, score, apples, hard_mode):
+    with sqlite3.connect(DB) as con:
+        con.execute(
+            "INSERT INTO scores(name, score, apples, hard_mode) VALUES (?,?,?,?)",
+            (name, score, apples, int(hard_mode))
+        )
+
+def fetch_top_scores(limit=5):
+    with sqlite3.connect(DB) as con:
+        rows = con.execute(
+            "SELECT name, score FROM scores ORDER BY score DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return rows
+
+# ---------- Web routes ----------
+@app.post("/api/start")
+def start():
+    """React sends {name} once at log-in."""
+    name = request.json.get("name", "Player")[:10]
+    return jsonify(ok=True, name=name)
+
+@app.post("/api/score")
+def save_score():
+    data = request.json
+    insert_score(data["name"], data["score"], data["apples"], data["hard"])
+    return jsonify(ok=True)
+
+@app.get("/api/leaderboard")
+def leaderboard():
+    return jsonify(fetch_top_scores())
+
+# ---------- run ----------
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
+
+import subprocess, json
+
+@app.post("/api/run")
+def run_pygame():
+    """
+    React posts {apples, hard, name}
+    We run the original snake.py with those args.
+    When the pygame window closes we read the final score from stdout.
+    """
+    data  = request.json
+    apples = data["apples"]
+    hard   = data["hard"]
+    name   = data["name"]
+
+    # build command
+    cmd = [sys.executable,
+           os.path.join(ROOT, "..", "snake.py"),  # your original file
+           str(apples), "hard" if hard else "normal", name]
+
+    # capture stdout (we print the final score as JSON on exit)
+    out = subprocess.check_output(cmd, text=True)
+    # last line must be JSON like  {"score": 12, "apples": 3, "hard": true}
+    final = json.loads(out.strip().splitlines()[-1])
+    return jsonify(final)
+
+------------------------------------------------------------------------
+import {useState} from "react";
+import Menu from "./menu";
+import Game from "./Game";
+
+function App(){
+  const [name, setName] = useState("");
+  if(!name) return <Login setName={setName}/>;
+  return (
+    <>
+      <Menu name={name}/>
+      <Game name={name}/>
+    </>
+  );
+}
+
+function Login({setName}){
+  const [n, setN] = useState("");
+  const start = () => {if(n.trim()) setName(n.trim())};
+  return <div style={{textAlign:"center", marginTop:100}}>
+    <h2>Enter your name</h2>
+    <input value={n} onChange={e=>setN(e.target.value)} maxLength={10}/>
+    <button onClick={start}>OK</button>
+  </div>;
+}
+export default App;
+
+---------------------------------------------------------
+
+import {useState} from "react";
+export default function Menu({name}){
+  const [opts, setOpts] = useState({apples:3, hard:false});
+  const update = (k,v)=>setOpts({...opts, [k]:v});
+  return <div style={{textAlign:"center", margin:20}}>
+    <h3>Welcome {name}</h3>
+    <label>Apples:
+      <select value={opts.apples} onChange={e=>update("apples", +e.target.value)}>
+        {[1,3,5,7].map(x=><option key={x}>{x}</option>)}
+      </select>
+    </label>
+    <label>Mode:
+      <select value={opts.hard} onChange={e=>update("hard", e.target.value==="true")}>
+        <option value={false}>NORMAL</option>
+        <option value={true}>HARD</option>
+      </select>
+    </label>
+    <button onClick={()=> window.dispatchEvent(new CustomEvent("startGame", {detail:opts}))}>
+      Play Snake
+    </button>
+  </div>;
+}
+--------------------------------------------------------------------
+
+import {useEffect, useRef} from "react";
+import {saveScore, getBoard} from "./api";
+
+export default function Game({name}){
+  const canvas = useRef();
+  useEffect(()=>{
+    const start = async (e)=>{
+      const {apples, hard} = e.detail;
+      // we simply embed the old pygame main inside a subprocess
+      // passing the choices as CLI flags
+      const py = await fetch("/api/run", {method:"POST", headers:{"Content-Type":"application/json"},
+                                          body:JSON.stringify({apples, hard, name})});
+      const final = await py.json();          // {score, apples, hard}
+      await saveScore({name, score:final.score, apples:final.apples, hard:final.hard});
+      alert("Game over – score saved!");
+      window.location.reload();                 // back to menu
+    };
+    window.addEventListener("startGame", start);
+    return ()=> window.removeEventListener("startGame", start);
+  },[name]);
+  return <canvas ref={canvas} width={750} height={750} style={{background:"#111", display:"block", margin:"20px auto"}}/>;
+}
+-----------------------------------------------------------
 import pygame
 import random
 import sys
@@ -5,6 +166,18 @@ import sqlite3
 import re
 from datetime import datetime
 from pygame.math import Vector2
+import argparse
+import json
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--name",   default="Player")
+parser.add_argument("--apples", type=int, default=3)
+parser.add_argument("--hard", type=int, default=0)
+args = parser.parse_args()
+
+CURRENT_PLAYER = args.name
+
+
 
 pygame.init()
 pygame.mixer.init()          # <── make sure mixer is ready
@@ -138,6 +311,8 @@ class MAIN:
         head = self.snake.body[0]
         for f in self.fruits:
             if f.pos == head:
+                pygame.mixer.music.load("eat.mp3")
+                pygame.mixer.music.play(1)
                 self.snake.add_block()
                 f.randomize()
                 while f.pos in self.snake.body:
@@ -147,20 +322,32 @@ class MAIN:
         if self.hard_mode and self.poison.active and self.poison.pos == head:
             self.death_by_poison = True
             self.game_over_flag = True
-            pygame.mixer.music.load("deads.mp3")
-            pygame.mixer.music.play(1)      # <── poison death sound
+            pygame.mixer.music.load("explode.mp3")
+            pygame.mixer.music.play(1)
+            pygame.time.delay(400)
+            pygame.mixer.music.load("deads1.mp3")
+            pygame.mixer.music.play(1)
+
 
     def check_fail(self):
         head = self.snake.body[0]
         if not 0 <= head.x < CELL_NUMBER or not 0 <= head.y < CELL_NUMBER:
             self.game_over_flag = True
-            pygame.mixer.music.load("deads.mp3")
-            pygame.mixer.music.play(1)    # <── wall death sound
+            pygame.mixer.music.load("explode.mp3")
+            pygame.mixer.music.play(1)
+            pygame.time.delay(400)
+            pygame.mixer.music.load("deads1.mp3")
+            pygame.mixer.music.play(1)
+
         for block in self.snake.body[1:]:
             if block == head:
                 self.game_over_flag = True
-                pygame.mixer.music.load("deads.mp3")
-                pygame.mixer.music.play(1)  # <── self-bite death sound
+                pygame.mixer.music.load("explode.mp3")
+                pygame.mixer.music.play(1)
+                pygame.time.delay(400)
+                pygame.mixer.music.load("deads1.mp3")
+                pygame.mixer.music.play(1)
+
 
     def draw_elements(self):
         self.draw_grass()
@@ -478,6 +665,10 @@ while True:
     apples = menu.apple_opts[menu.apple_idx]
     hard = menu.mode_opts[menu.mode_idx] == 'HARD'
     main_game(apples, hard)
-how do i make this a flask react
+    score = len(main.snake.body) - 3          # final score
+    print(json.dumps({"score": score,
+                    "apples": apples,
+                    "hard": bool(hard)}))    # MUST be the last line
 
 
+how can i run both back end and front end?

@@ -1,177 +1,67 @@
-Converting a **Pygame desktop game** into a **Flask + React web app** is a **complete architectural shift**. Pygame is **not** designed to run in a browser, so you **cannot embed it directly**. Instead, you need to:
+Below is the shortest path from “nothing running” to “I can open the browser, press Play and see the Pygame window pop-up”.
 
----
+-------------------------------------------------
+1.  Folder layout (keep it exactly like this)
+project-root/
+├── backend/
+│   ├── app.py          ← the Flask file you pasted
+│   └── snake_scores.db ← will be created automatically
+├── frontend/
+│   ├── package.json
+│   ├── public/
+│   └── src/
+│       ├── App.js
+│       ├── menu.js
+│       ├── Game.js
+│       └── api.js
+└── snake.py            ← the Pygame file you pasted
 
-### ✅ Step-by-Step Plan: Pygame → Flask + React
+-------------------------------------------------
+2.  Install once
+# ------- Python side -------
+cd backend
+python -m venv venv            # optional but recommended
+venv\Scripts\activate            # Windows
+# or   source venv/bin/activate  # macOS / Linux
+pip install flask flask-cors   # nothing else is required
 
----
+# ------- Node side ---------
+cd ../frontend
+npm create vite@latest . --template react   # or: npx create-react-app .
+npm install                                 # install react / react-dom
 
-## 🔁 1. **Separate Game Logic from Pygame Rendering**
-You must **decouple** the game logic from Pygame-specific rendering.
+-------------------------------------------------
+3.  Tiny helper file frontend/src/api.js
+export const API = "http://localhost:5000/api";
 
-### ✅ What to Do:
-- Create a **pure Python game engine** (no `pygame`, no `pygame.display`, etc.)
-- Represent the game state as **JSON-serializable data**:
-  - Snake positions
-  - Fruit positions
-  - Score
-  - Game over flag
+export const saveScore = (body) =>
+  fetch(`${API}/score`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
 
----
+export const getBoard = () =>
+  fetch(`${API}/leaderboard`).then(r=>r.json());
 
-## 🧠 2. **Create a Flask Backend (Game API)**
+-------------------------------------------------
+4.  Run everything
+4-A  Start the Flask server
+cd backend
+venv\Scripts\activate   # activate again if you closed the terminal
+python app.py           # it listens on :5000
 
-### ✅ Endpoints You Need:
-| Endpoint | Method | Purpose |
-|---------|--------|---------|
-| `/start` | POST | Start a new game (return game ID) |
-| `/move` | POST | Send a move (UP/DOWN/LEFT/RIGHT) |
-| `/state` | GET | Get current game state as JSON |
+4-B  Start the React dev-server
+Open a second terminal
+cd frontend
+npm run dev             # Vite prints a localhost:5173 URL
+# or   npm start         # CRA prints localhost:3000
 
-### ✅ Example:
-```python
-# Flask app (simplified)
-from flask import Flask, request, jsonify
-from game_engine import GameEngine  # your pure Python game logic
+-------------------------------------------------
+5.  Play
+1. Open the URL the React dev-server printed (http://localhost:5173 or :3000).
+2. Type a name → click OK.
+3. Choose apples / mode → Play Snake.
+4. The Pygame window opens; when you die the score is written to the DB and the page reloads back to the menu.
 
-app = Flask(__name__)
-games = {}
-
-@app.route('/start', methods=['POST'])
-def start_game():
-    game_id = str(len(games) + 1)
-    games[game_id] = GameEngine()
-    return jsonify({"game_id": game_id, "state": games[game_id].get_state()})
-
-@app.route('/move', methods=['POST'])
-def move():
-    game_id = request.json['game_id']
-    direction = request.json['direction']
-    game = games[game_id]
-    game.move(direction)
-    return jsonify(game.get_state())
-
-@app.route('/state/<game_id>', methods=['GET'])
-def get_state(game_id):
-    return jsonify(games[game_id].get_state())
-```
-
----
-
-## ⚛️ 3. **Create a React Frontend**
-
-### ✅ What It Does:
-- Sends POST requests to Flask
-- Renders the game state as a **grid** (canvas or divs)
-- Handles keyboard input (WASD or arrow keys)
-
-### ✅ Example React Component (simplified):
-```jsx
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-
-function Game() {
-  const [gameId, setGameId] = useState(null);
-  const [state, setState] = useState(null);
-
-  useEffect(() => {
-    startGame();
-  }, []);
-
-  const startGame = async () => {
-    const res = await axios.post('/start');
-    setGameId(res.data.game_id);
-    setState(res.data.state);
-  };
-
-  const move = async (dir) => {
-    const res = await axios.post('/move', { game_id: gameId, direction: dir });
-    setState(res.data);
-  };
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'ArrowUp') move('UP');
-      if (e.key === 'ArrowDown') move('DOWN');
-      if (e.key === 'ArrowLeft') move('LEFT');
-      if (e.key === 'ArrowRight') move('RIGHT');
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [gameId]);
-
-  if (!state) return <div>Loading...</div>;
-
-  return (
-    <div>
-      <h2>Score: {state.score}</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${state.grid_size}, 30px)` }}>
-        {state.grid.map((row, y) =>
-          row.map((cell, x) => (
-            <div
-              key={`${x}-${y}`}
-              style={{
-                width: 30,
-                height: 30,
-                backgroundColor:
-                  cell === 'snake' ? 'green' :
-                  cell === 'fruit' ? 'red' :
-                  cell === 'poison' ? 'purple' : '#eee',
-                border: '1px solid #ccc'
-              }}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default Game;
-```
-
----
-
-## 🧪 4. **Run It All Together**
-
-### ✅ Backend:
-```bash
-pip install flask flask-cors
-python app.py
-```
-
-### ✅ Frontend:
-```bash
-npx create-react-app snake-client
-cd snake-client
-npm install axios
-npm start
-```
-
----
-
-## 🧩 Optional Enhancements
-- Add **WebSockets** (Socket.IO) for real-time updates
-- Add **authentication** and **leaderboards**
-- Add **themes** (light/dark mode) via React state
-- Add **sound effects** via Web Audio API
-
----
-
-## ✅ Summary Table
-
-| Component | Tech Stack | Notes |
-|----------|-------------|--------|
-| Game Logic | Pure Python | No Pygame |
-| Backend | Flask | REST API |
-| Frontend | React | Grid-based UI |
-| Real-time | Polling or WebSockets | Optional |
-| Graphics | HTML/CSS/JS | No Pygame |
-
----
-
-## 🧱 Want Help Building This?
-I can scaffold the full Flask + React version for you. Just say:
-> "Generate the full Flask + React version of this Snake game"
-
-And I’ll give you a zip-ready project.
+-------------------------------------------------
+6.  Common gotchas
+• 403/500 on /api/run → make sure snake.py lives in project-root (one level above backend) so the subprocess path is correct.  
+• “Port 5000 already in use” → change port in app.run or kill the other process.  
+• CORS error → flask-cors is already installed and CORS(app) is in app.py.

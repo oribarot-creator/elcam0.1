@@ -5,6 +5,18 @@ import sqlite3
 import re
 from datetime import datetime
 from pygame.math import Vector2
+import argparse
+import json
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--name",   default="Player")
+parser.add_argument("--apples", type=int, default=3)
+parser.add_argument("--hard", type=int, default=0)
+args = parser.parse_args()
+
+CURRENT_PLAYER = args.name
+
+
 
 pygame.init()
 pygame.mixer.init()          # <── make sure mixer is ready
@@ -492,4 +504,4 @@ while True:
     apples = menu.apple_opts[menu.apple_idx]
     hard = menu.mode_opts[menu.mode_idx] == 'HARD'
     main_game(apples, hard)
-
+    print(json.dumps({"score": args.score, "apples": args.apples, "hard": bool(args.hard)}))
