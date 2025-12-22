@@ -151,6 +151,9 @@ class MAIN:
             self.game_over_flag = True
             pygame.mixer.music.load("explode.mp3")
             pygame.mixer.music.play(1)
+            pygame.time.delay(400)
+            pygame.mixer.music.load("deads1.mp3")
+            pygame.mixer.music.play(1)
 
 
     def check_fail(self):
@@ -159,10 +162,17 @@ class MAIN:
             self.game_over_flag = True
             pygame.mixer.music.load("explode.mp3")
             pygame.mixer.music.play(1)
+            pygame.time.delay(400)
+            pygame.mixer.music.load("deads1.mp3")
+            pygame.mixer.music.play(1)
+
         for block in self.snake.body[1:]:
             if block == head:
                 self.game_over_flag = True
                 pygame.mixer.music.load("explode.mp3")
+                pygame.mixer.music.play(1)
+                pygame.time.delay(400)
+                pygame.mixer.music.load("deads1.mp3")
                 pygame.mixer.music.play(1)
 
 
@@ -382,8 +392,6 @@ def ask_name_once():
 # -------------------------------------------------
 def game_over_screen(final_score, apples, hard_mode):
     # Always insert – no matter if it is a high score or not
-    pygame.mixer.music.load("deads1.mp3")
-    pygame.mixer.music.play(1)
     insert_score(CURRENT_PLAYER, final_score, apples, hard_mode)
 
     top5 = fetch_top_scores()
