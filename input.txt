@@ -671,4 +671,4 @@ while True:
                     "hard": bool(hard)}))    # MUST be the last line
 
 
-how can i run both back end and front end?
+how can i make package-lock.json not lock (i know its not locked)?

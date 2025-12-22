@@ -1,67 +1,26 @@
-Below is the shortest path from “nothing running” to “I can open the browser, press Play and see the Pygame window pop-up”.
+`package-lock.json` is **never “locked” in the cryptographic sense**; npm can always overwrite it.  
+The file is only *advisory* – it records the exact versions that were last installed so that the next `npm ci` (or `npm install` without flags) reproduces the same tree.  
+If you want npm to **ignore** that file and always pull the latest versions that still satisfy the ranges in `package.json`, just delete it (and, optionally, never commit it to the repo).
 
--------------------------------------------------
-1.  Folder layout (keep it exactly like this)
-project-root/
-├── backend/
-│   ├── app.py          ← the Flask file you pasted
-│   └── snake_scores.db ← will be created automatically
-├── frontend/
-│   ├── package.json
-│   ├── public/
-│   └── src/
-│       ├── App.js
-│       ├── menu.js
-│       ├── Game.js
-│       └── api.js
-└── snake.py            ← the Pygame file you pasted
+Quick recipes
 
--------------------------------------------------
-2.  Install once
-# ------- Python side -------
-cd backend
-python -m venv venv            # optional but recommended
-venv\Scripts\activate            # Windows
-# or   source venv/bin/activate  # macOS / Linux
-pip install flask flask-cors   # nothing else is required
+1. One-off “update everything to latest allowed”
+   ```bash
+   rm package-lock.json          # or: del package-lock.json  (Windows)
+   npm install                   # re-resolves from scratch
+   ```
 
-# ------- Node side ---------
-cd ../frontend
-npm create vite@latest . --template react   # or: npx create-react-app .
-npm install                                 # install react / react-dom
+2. Keep it out of your repo altogether
+   ```bash
+   echo "package-lock.json" >> .gitignore
+   git rm --cached package-lock.json
+   git commit -m "ignore lockfile"
+   ```
 
--------------------------------------------------
-3.  Tiny helper file frontend/src/api.js
-export const API = "http://localhost:5000/api";
+3. Never let npm write it again (npm ≤ 6 only)
+   ```bash
+   npm config set package-lock false
+   ```
 
-export const saveScore = (body) =>
-  fetch(`${API}/score`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
-
-export const getBoard = () =>
-  fetch(`${API}/leaderboard`).then(r=>r.json());
-
--------------------------------------------------
-4.  Run everything
-4-A  Start the Flask server
-cd backend
-venv\Scripts\activate   # activate again if you closed the terminal
-python app.py           # it listens on :5000
-
-4-B  Start the React dev-server
-Open a second terminal
-cd frontend
-npm run dev             # Vite prints a localhost:5173 URL
-# or   npm start         # CRA prints localhost:3000
-
--------------------------------------------------
-5.  Play
-1. Open the URL the React dev-server printed (http://localhost:5173 or :3000).
-2. Type a name → click OK.
-3. Choose apples / mode → Play Snake.
-4. The Pygame window opens; when you die the score is written to the DB and the page reloads back to the menu.
-
--------------------------------------------------
-6.  Common gotchas
-• 403/500 on /api/run → make sure snake.py lives in project-root (one level above backend) so the subprocess path is correct.  
-• “Port 5000 already in use” → change port in app.run or kill the other process.  
-• CORS error → flask-cors is already installed and CORS(app) is in app.py.
+With npm 7+ the setting was renamed, but the idea is the same—just delete the file and don’t commit it.  
+That’s all that is required; there is no other “lock” to break.
