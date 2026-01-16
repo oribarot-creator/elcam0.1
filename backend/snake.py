@@ -464,6 +464,8 @@ def main_game(apple_count, hard_mode):
                 if main.game_over_flag and e.key == pygame.K_r:
                     score = len(main.snake.body) - 3
                     game_over_screen(score, apple_count, hard_mode)
+                    score = len(main.snake.body) - 3
+                    print(json.dumps({"score": score, "apples": apple_count, "hard": hard_mode}))
                     return
                 if e.key == pygame.K_ESCAPE:
                     pygame.quit(); sys.exit()
@@ -504,4 +506,4 @@ while True:
     apples = menu.apple_opts[menu.apple_idx]
     hard = menu.mode_opts[menu.mode_idx] == 'HARD'
     main_game(apples, hard)
-    print(json.dumps({"score": args.score, "apples": args.apples, "hard": bool(args.hard)}))
+    

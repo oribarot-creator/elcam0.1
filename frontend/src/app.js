@@ -1,25 +1,50 @@
-import {useState} from "react";
-import Menu from "./menu";
-import Game from "./Game";
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 
-function App(){
-  const [name, setName] = useState("");
-  if(!name) return <Login setName={setName}/>;
+function App() {
+  const [games, setGames] = useState([]);
+  const [name, setName] = useState('');
+  const [path, setPath] = useState('');
+
+  const fetchGames = async () => {
+    const { data } = await axios.get('/api/games');
+    setGames(data);
+  };
+  useEffect(() => { fetchGames(); }, []);
+
+  const addGame = async e => {
+    e.preventDefault();
+    await axios.post('/api/games', { name, path });
+    setName(''); setPath('');
+    fetchGames();
+  };
+
+  const runGame = async id => {
+    await axios.post(`/api/games/${id}/run`);
+    alert('Game launched (check terminal)!');
+  };
+
   return (
-    <>
-      <Menu name={name}/>
-      <Game name={name}/>
-    </>
-  );
-}
+    <div style={{maxWidth: 600, margin: '40px auto', fontFamily:'sans-serif'}}>
+      <h1>My Python Games Launcher</h1>
 
-function Login({setName}){
-  const [n, setN] = useState("");
-  const start = () => {if(n.trim()) setName(n.trim())};
-  return <div style={{textAlign:"center", marginTop:100}}>
-    <h2>Enter your name</h2>
-    <input value={n} onChange={e=>setN(e.target.value)} maxLength={10}/>
-    <button onClick={start}>OK</button>
-  </div>;
+      <form onSubmit={addGame}>
+        <input placeholder="Game name" value={name} onChange={e => setName(e.target.value)} required />
+        <input placeholder="File name (e.g. guess.py)" value={path} onChange={e => setPath(e.target.value)} required />
+        <button>Add game</button>
+      </form>
+
+      <h2>Games in library</h2>
+      {games.length === 0 && <p>No games yet.</p>}
+      <ul>
+        {games.map(g => (
+          <li key={g.id}>
+            {g.name} ({g.path}) &nbsp;
+            <button onClick={() => runGame(g.id)}>Run</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 export default App;

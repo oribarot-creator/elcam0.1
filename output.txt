@@ -1,26 +1,21 @@
-`package-lock.json` is **never “locked” in the cryptographic sense**; npm can always overwrite it.  
-The file is only *advisory* – it records the exact versions that were last installed so that the next `npm ci` (or `npm install` without flags) reproduces the same tree.  
-If you want npm to **ignore** that file and always pull the latest versions that still satisfy the ranges in `package.json`, just delete it (and, optionally, never commit it to the repo).
+`index.js` is the **entry-point** of your React application.  
+When the bundler (webpack inside Create-React-App / Vite / etc.) runs, it starts with the file you tell it to.  
+By convention that file is `src/index.js`.
 
-Quick recipes
+At that moment nothing in `App.jsx` has been executed yet, so the bundler has to **read the file that contains the `App` component** and pull it into `index.js`.  
+The ES-module statement
 
-1. One-off “update everything to latest allowed”
-   ```bash
-   rm package-lock.json          # or: del package-lock.json  (Windows)
-   npm install                   # re-resolves from scratch
-   ```
+```js
+import App from './App';
+```
 
-2. Keep it out of your repo altogether
-   ```bash
-   echo "package-lock.json" >> .gitignore
-   git rm --cached package-lock.json
-   git commit -m "ignore lockfile"
-   ```
+does exactly that:
 
-3. Never let npm write it again (npm ≤ 6 only)
-   ```bash
-   npm config set package-lock false
-   ```
+1. It looks for `./App.js` (or `.jsx`, `.ts`, `.tsx`) in the **same folder** as `index.js` (`src`).  
+2. It executes the code inside that file once.  
+3. It grabs the **default export** (your `App` React component) and binds it to the identifier `App`.  
+4. `root.render(<App />)` can now use that component to build the virtual-DOM tree and mount it into the real DOM element whose `id` is `root`.
 
-With npm 7+ the setting was renamed, but the idea is the same—just delete the file and don’t commit it.  
-That’s all that is required; there is no other “lock” to break.
+Without the import, `App` would be undefined and React would have nothing to render.
+
+(The fact that you are on Windows is irrelevant; the bundler normalises slashes and resolves the path for you.)
