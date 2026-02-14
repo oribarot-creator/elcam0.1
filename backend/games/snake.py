@@ -150,8 +150,8 @@ class MAIN:
         head = self.snake.body[0]
         for f in self.fruits:
             if f.pos == head:
-                pygame.mixer.music.load("eat.mp3")
-                pygame.mixer.music.play(1)
+                # pygame.mixer.music.load("eat.mp3")
+                # pygame.mixer.music.play(1)
                 self.snake.add_block()
                 f.randomize()
                 while f.pos in self.snake.body:
@@ -161,31 +161,31 @@ class MAIN:
         if self.hard_mode and self.poison.active and self.poison.pos == head:
             self.death_by_poison = True
             self.game_over_flag = True
-            pygame.mixer.music.load("explode.mp3")
-            pygame.mixer.music.play(1)
-            pygame.time.delay(400)
-            pygame.mixer.music.load("deads1.mp3")
-            pygame.mixer.music.play(1)
+            # pygame.mixer.music.load("explode.mp3")
+            # pygame.mixer.music.play(1)
+            # pygame.time.delay(400)
+            # pygame.mixer.music.load("deads1.mp3")
+            # pygame.mixer.music.play(1)
 
 
     def check_fail(self):
         head = self.snake.body[0]
         if not 0 <= head.x < CELL_NUMBER or not 0 <= head.y < CELL_NUMBER:
             self.game_over_flag = True
-            pygame.mixer.music.load("explode.mp3")
-            pygame.mixer.music.play(1)
-            pygame.time.delay(400)
-            pygame.mixer.music.load("deads1.mp3")
-            pygame.mixer.music.play(1)
+            # pygame.mixer.music.load("explode.mp3")
+            # pygame.mixer.music.play(1)
+            # pygame.time.delay(400)
+            # pygame.mixer.music.load("deads1.mp3")
+            # pygame.mixer.music.play(1)
 
         for block in self.snake.body[1:]:
             if block == head:
                 self.game_over_flag = True
-                pygame.mixer.music.load("explode.mp3")
-                pygame.mixer.music.play(1)
-                pygame.time.delay(400)
-                pygame.mixer.music.load("deads1.mp3")
-                pygame.mixer.music.play(1)
+                # pygame.mixer.music.load("explode.mp3")
+                # pygame.mixer.music.play(1)
+                # pygame.time.delay(400)
+                # pygame.mixer.music.load("deads1.mp3")
+                # pygame.mixer.music.play(1)
 
 
     def draw_elements(self):
