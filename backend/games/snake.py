@@ -467,15 +467,14 @@ def main_game(apple_count, hard_mode):
                     score = len(main.snake.body) - 3
                     print(json.dumps({"score": score, "apples": apple_count, "hard": hard_mode}))
                     return
-                if e.key == pygame.K_ESCAPE:
-                    pygame.quit(); sys.exit()
-                if e.key == pygame.K_UP and main.snake.direction.y != 1:
+            if e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_UP, pygame.K_w) and main.snake.direction.y != 1:
                     main.snake.direction = Vector2(0, -1)
-                if e.key == pygame.K_DOWN and main.snake.direction.y != -1:
+                elif e.key in (pygame.K_DOWN, pygame.K_s) and main.snake.direction.y != -1:
                     main.snake.direction = Vector2(0, 1)
-                if e.key == pygame.K_LEFT and main.snake.direction.x != 1:
+                elif e.key in (pygame.K_LEFT, pygame.K_a) and main.snake.direction.x != 1:
                     main.snake.direction = Vector2(-1, 0)
-                if e.key == pygame.K_RIGHT and main.snake.direction.x != -1:
+                elif e.key in (pygame.K_RIGHT, pygame.K_d) and main.snake.direction.x != -1:
                     main.snake.direction = Vector2(1, 0)
 
         SCREEN.fill(theme("bg"))
