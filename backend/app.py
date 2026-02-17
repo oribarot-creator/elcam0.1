@@ -1,63 +1,79 @@
-import os
-import sys
-import subprocess
-import sqlite3
 from pathlib import Path
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import sqlite3
+import subprocess
+import sys
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent
-DB   = ROOT/"games.db"
-GAMES_DIR = ROOT/"games"
+DB = ROOT / "games.db"
+GAMES_DIR = ROOT / "games"
 
-app = Flask(__name__)
-CORS(app)   # allow React dev-server (port 3000)
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# ---------- DB helpers --------------------------------------------------------
+class GameCreate(BaseModel):
+    name: str
+    path: str  # relative to games/ folder
+#------------------db----------------------------------
+
 def init_db():
     with sqlite3.connect(DB) as conn:
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS games(
                 id   INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
                 path TEXT NOT NULL
             )
-        """)
+            """
+        )
 init_db()
 
 def query(sql, params=(), one=False):
     with sqlite3.connect(DB) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.execute(sql, params)
-        return (cur.fetchone() if one else cur.fetchall())
-
-# ---------- REST routes ------------------------------------------------------
+        return cur.fetchone() if one else cur.fetchall()
+#------------------rest routes----------------------------------
 @app.get("/api/games")
 def list_games():
-    return jsonify([dict(r) for r in query("SELECT * FROM games ORDER BY name")])
+    return [dict(r) for r in query("SELECT * FROM games ORDER BY name")]
 
-@app.post("/api/games")
-def add_game():
-    data = request.get_json()
-    name = data.get("name")
-    path = data.get("path")          # relative to games/ folder
-    if not name or not path:
-        return {"error": "name and path required"}, 400
+@app.post("/api/games", status_code=201)
+def add_game(payload: GameCreate):
+    rel_path_obj = Path(payload.path)
+    if rel_path_obj.is_absolute():
+        raise HTTPException(400, "path must stay inside games directory")
+
+    games_root = GAMES_DIR.resolve()
+    full_path = (games_root / rel_path_obj).resolve()
+    if games_root not in full_path.parents:
+        raise HTTPException(400, "path must stay inside games directory")
+    if not full_path.exists():
+        raise HTTPException(400, "game file does not exist")
+
     try:
-        query("INSERT INTO games(name, path) VALUES (?,?)", (name, path))
+        query("INSERT INTO games(name, path) VALUES (?, ?)", (payload.name, payload.path))
     except sqlite3.IntegrityError:
-        return {"error": "Game name already exists"}, 409
-    return {"message": "Game added"}, 201
+        raise HTTPException(409, "Game name already exists")
+    return {"message": "Game added"}
 
-@app.post("/api/games/<int:game_id>/run")
-def run_game(game_id):
+@app.post("/api/games/{game_id}/run")
+def run_game(game_id: int):
     row = query("SELECT path FROM games WHERE id=?", (game_id,), one=True)
     if not row:
-        return {"error": "Game not found"}, 404
-    full_path = GAMES_DIR/row["path"]
+        raise HTTPException(404, "Game not found")
+    full_path = GAMES_DIR / row["path"]
     if not full_path.exists():
-        return {"error": "Game file missing on disk"}, 404
-    # run detached so Flask stays responsive
+        raise HTTPException(404, "Game file missing on disk")
     subprocess.Popen([sys.executable, str(full_path)])
     return {"message": "Game launched in background"}
 
