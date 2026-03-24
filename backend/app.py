@@ -2,6 +2,7 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+import uvicorn
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -79,4 +80,4 @@ def run_game(game_id: int):
 
 # ---------- dev only ----------------------------------------------------------
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    uvicorn.run("app:app", host="127.0.0.1", port=5000, reload=True)
