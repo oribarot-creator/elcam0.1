@@ -8,6 +8,7 @@ function App() {
   const [isLoadingGames, setIsLoadingGames] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [runningGameId, setRunningGameId] = useState(null);
+  const [removingGameId, setRemovingGameId] = useState(null);
   const [status, setStatus] = useState(null);
 
   const fetchGames = async () => {
@@ -57,6 +58,20 @@ function App() {
       setStatus({ type: 'error', text: 'Game launch failed. Verify the game path first.' });
     } finally {
       setRunningGameId(null);
+    }
+  };
+
+  const removeGame = async id => {
+    setRemovingGameId(id);
+    setStatus(null);
+    try {
+      await axios.delete(`/api/games/${id}`);
+      await fetchGames();
+      setStatus({ type: 'success', text: 'Game removed from your library.' });
+    } catch (error) {
+      setStatus({ type: 'error', text: 'Could not remove game. Please try again.' });
+    } finally {
+      setRemovingGameId(null);
     }
   };
 
@@ -149,13 +164,22 @@ function App() {
                       <p className="font-semibold text-slate-900">{g.name}</p>
                       <p className="text-sm text-slate-600">{g.path}</p>
                     </div>
-                    <button
-                      onClick={() => runGame(g.id)}
-                      disabled={runningGameId === g.id}
-                      className="rounded-lg bg-ember-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {runningGameId === g.id ? 'Launching...' : 'Run game'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => runGame(g.id)}
+                        disabled={runningGameId === g.id || removingGameId === g.id}
+                        className="rounded-lg bg-ember-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {runningGameId === g.id ? 'Launching...' : 'Run game'}
+                      </button>
+                      <button
+                        onClick={() => removeGame(g.id)}
+                        disabled={removingGameId === g.id || runningGameId === g.id}
+                        className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {removingGameId === g.id ? 'Removing...' : 'Remove'}
+                      </button>
+                    </div>
                   </div>
                 </li>
               ))}

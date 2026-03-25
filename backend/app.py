@@ -78,6 +78,15 @@ def run_game(game_id: int):
     subprocess.Popen([sys.executable, str(full_path)])
     return {"message": "Game launched in background"}
 
+@app.delete("/api/games/{game_id}")
+def delete_game(game_id: int):
+    row = query("SELECT id FROM games WHERE id=?", (game_id,), one=True)
+    if not row:
+        raise HTTPException(404, "Game not found")
+
+    query("DELETE FROM games WHERE id=?", (game_id,))
+    return {"message": "Game removed"}
+
 # ---------- dev only ----------------------------------------------------------
 if __name__ == "__main__":
     uvicorn.run("app:app", host="127.0.0.1", port=5000, reload=True)
